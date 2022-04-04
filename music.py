@@ -231,7 +231,7 @@ async def setup():
     bot.add_cog(Player(bot))
 
 bot.loop.create_task(setup())
-bot.run("OTQyMDE3ODU1NzMyNDY5ODIw.YgeYfg.n66dP0O4sTnoYvZMi5SC4CM3oh4")
+bot.run()
 
 
 
