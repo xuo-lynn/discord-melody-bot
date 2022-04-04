@@ -226,7 +226,7 @@ async def setup():
     bot.add_cog(Player(bot))
 
 bot.loop.create_task(setup())
-bot.run("OTQyMDE3ODU1NzMyNDY5ODIw.YgeYfg.k3NhxeJ5AeCCbIaCy1c8StojSz0")
+bot.run("insert token")
 
 
 
