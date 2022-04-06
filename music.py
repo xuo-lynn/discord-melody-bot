@@ -1,6 +1,7 @@
 import asyncio
 from ntpath import join
 import sys
+from unittest import result
 import youtube_dl
 import pafy
 import discord
@@ -29,22 +30,30 @@ class Player(commands.Cog):
     def setup(self):
         for guild in self.bot.guilds:
             self.song_queue[guild.id] = []
+    
+    global user
+
+    async def play_song(self, ctx, song):
+        url = pafy.new(song).getbestaudio().url
+        ctx.voice_client.play(discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(url)), after=lambda error: self.bot.loop.create_task(self.check_queue(ctx)))
+        ctx.voice_client.source.volume = 0.5
 
     async def check_queue(self, ctx):
         if len(self.song_queue[ctx.guild.id]) > 0:
             await self.play_song(ctx, self.song_queue[ctx.guild.id][0])
+            title = pafy.new(self.song_queue[ctx.guild.id][0]).title
+            embed = discord.Embed(title="Now Playing", description=title, color=0xf8c8dc)
+            #embed.set_author(name=f"{ctx.author.name}", icon_url=ctx.author.avatar_url)
+            embed.set_thumbnail(url=pafy.new(self.song_queue[ctx.guild.id][0]).bigthumbhd)
             self.song_queue[ctx.guild.id].pop(0)
+            await ctx.send(embed=embed)
+            
 
     async def search_song(self, amount, song, get_url=False):
         info = await self.bot.loop.run_in_executor(None, lambda: youtube_dl.YoutubeDL({"format" : "bestaudio", "quiet" : True}).extract_info(f"ytsearch{amount}:{song}", download=False, ie_key="YoutubeSearch"))
         if len(info["entries"]) == 0: return None
 
         return [entry["webpage_url"] for entry in info["entries"]] if get_url else info
-
-    async def play_song(self, ctx, song):
-        url = pafy.new(song).getbestaudio().url
-        ctx.voice_client.play(discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(url)), after=lambda error: self.bot.loop.create_task(self.check_queue(ctx)))
-        ctx.voice_client.source.volume = 0.5
 
     @commands.command()
     async def join(self, ctx):
@@ -73,8 +82,9 @@ class Player(commands.Cog):
 
         # handle song where song isn't url
         if not ("youtube.com/watch?" in song or "https://youtu.be/" in song):
-            await ctx.send("**Searching for song...**")
+            await ctx.send("**Searching for Song...**")
 
+            global result
             result = await self.search_song(1, song, get_url=True)
 
             if result is None:
@@ -84,27 +94,40 @@ class Player(commands.Cog):
 
         if ctx.voice_client.source is not None:
             queue_len = len(self.song_queue[ctx.guild.id])
+            if ctx.voice_client.is_playing():
+                if queue_len < 10:
+                    self.song_queue[ctx.guild.id].append(song)
+                    title = pafy.new(song).title
+                    thumbnail = pafy.new(song).bigthumbhd
+                    embed = discord.Embed(title=f"Position in queue: {queue_len+1}",description= title, color=0x0096FF)
+                    embed.set_author(name=f"{ctx.author.name} added to queue", icon_url=ctx.author.avatar_url)
+                    embed.set_thumbnail(url=thumbnail)
+                    await ctx.send(embed=embed)
 
-            if queue_len < 10:
-                self.song_queue[ctx.guild.id].append(song)
-                title = pafy.new(song).title
-                thumbnail = pafy.new(song).bigthumbhd
-                embed = discord.Embed(title=f"Position in queue: {queue_len+1}",description= title, color=0xf8c8dc)
-                embed.set_author(name=f"{ctx.author.name} added to queue", icon_url=ctx.author.avatar_url)
-                embed.set_thumbnail(url=thumbnail)
-                await ctx.send(embed=embed)
-
-            else:
-                return await ctx.send("**Sorry, I can only queue up to 10 songs, please wait for the current song to finish.**")
+                else:
+                    return await ctx.send("**Sorry, I can only queue up to 10 songs, please wait for the current song to finish.**")
 
         await self.play_song(ctx, song)
+        user = ctx.message.author.name
         title = pafy.new(song).title
         thumbnail = pafy.new(song).bigthumbhd
         embed = discord.Embed(title="Now Playing", description=title, color=0xf8c8dc)
         embed.set_thumbnail(url=thumbnail)
-        embed.set_author(name=f"{ctx.author.name} added", icon_url=ctx.author.avatar_url)
+        embed.set_author(name=f"{user}", icon_url=ctx.author.avatar_url)
         await ctx.send(embed=embed)
 
+    #@commands.command(name="np")
+    #async def now_playing(self, ctx):
+     #   if ctx.voice_client is None:
+     #       return await ctx.send("**I am not connected to a voice channel.**")
+
+     #   if ctx.voice_client.source is None:
+     #       return await ctx.send("**I am not playing anything.**")
+
+        #if ctx.voice_client.source is not None:
+            
+             
+    
     @commands.command()
     async def search(self, ctx, *, song=None):
         if song is None: return await ctx.send("**You forgot to include a song to search for.**")
@@ -142,14 +165,14 @@ class Player(commands.Cog):
     async def skip(self, ctx):
         role = discord.utils.find(lambda r: r.name == 'DJ', ctx.message.guild.roles)
 
-        if role in ctx.author.roles:
+        if role in ctx.author.roles and len(self.song_queue[ctx.guild.id]) > 0:
             skip = True
             ctx.voice_client.stop()
-            title = pafy.new(self.song_queue[ctx.guild.id][0]).title
-            thumbnail = pafy.new(self.song_queue[ctx.guild.id][0]).bigthumbhd
-            embed = discord.Embed( description = f'**Now Playing:** {title}', color=0xf8c8dc)
+           # title = pafy.new(self.song_queue[ctx.guild.id][0]).title
+           # thumbnail = pafy.new(self.song_queue[ctx.guild.id][0]).bigthumbhd
+            embed = discord.Embed(color=0xf8c8dc)
             embed.set_author(name=f"{ctx.author.name} has skipped the song", icon_url=ctx.author.avatar_url)
-            embed.set_thumbnail(url=thumbnail)
+           # embed.set_thumbnail(url=thumbnail)
             
             return await ctx.send(embed=embed)
 
@@ -201,8 +224,8 @@ class Player(commands.Cog):
                 skip = True
                 title = pafy.new(self.song_queue[ctx.guild.id][0]).title
                 thumbnail = pafy.new(self.song_queue[ctx.guild.id][0]).bigthumbhd
-                embed = discord.Embed(title="Vote Skip Successful", description = f'**Now Playing:** {title}', colour=discord.Colour.green())
-                embed.set_thumbnail(url=thumbnail)
+                embed = discord.Embed(title="Vote Skip Successful",colour=discord.Colour.green())
+                #embed.set_thumbnail(url=thumbnail)
 
         if not skip:
             embed = discord.Embed(title="Skip Failed", description="**The vote requires at least 70% of users to vote to skip.**", colour=discord.Colour.red())
