@@ -47,7 +47,7 @@ class Player(commands.Cog):
         ctx.voice_client.play(discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(url)), after=lambda error: self.bot.loop.create_task(self.check_queue(ctx)))
         ctx.voice_client.source.volume = 0.5
 
-    async def check_queue(self, ctx):
+    async def check_queue(self, ctx): #plays next song in queue
 
         if len(self.song_queue[ctx.guild.id]) > 0:
             async with ctx.typing():
@@ -62,7 +62,7 @@ class Player(commands.Cog):
             self.name_queue[ctx.guild.id].pop(0)
             await ctx.send(embed=embed)
 
-    @commands.Cog.listener()
+    @commands.Cog.listener() #auto disconnect after 5 minutes when no song is playing
     async def on_voice_state_update(self, member, before, after):   
     
         if not member.id == self.bot.user.id:
@@ -84,14 +84,14 @@ class Player(commands.Cog):
 
             
 
-    async def search_song(self, amount, song, get_url=False):
+    async def search_song(self, amount, song, get_url=False): #searhes youtube for song
         info = await self.bot.loop.run_in_executor(None, lambda: youtube_dl.YoutubeDL({"format" : "bestaudio", "quiet" : True}).extract_info(f"ytsearch{amount}:{song}", download=False, ie_key="YoutubeSearch"))
         if len(info["entries"]) == 0: return None
 
         return [entry["webpage_url"] for entry in info["entries"]] if get_url else info
     
-    @commands.command()
-    async def help(self,ctx):
+    @commands.command() #help command
+    async def help(self,ctx): 
         embed = discord.Embed(title="Melody Commands", description= "  **Thanks for using Melody!**", color=0xf8c8dc)
         embed.add_field(name="!play", value="Plays song from Youtube", inline=False)
         embed.add_field(name="!pop", value="Removes song from queue", inline=False)
@@ -138,7 +138,7 @@ class Player(commands.Cog):
             song = result[0] 
             
 
-        if ctx.voice_client.source is not None:
+        if ctx.voice_client.source is not None: #adds to queue if song is already playing
             queue_len = len(self.song_queue[ctx.guild.id])
             if ctx.voice_client.is_playing():
                 if queue_len < 10:
@@ -155,7 +155,7 @@ class Player(commands.Cog):
                 else:
                     return await ctx.send("**Sorry, I can only queue up to 10 songs, please wait for the current song to finish.**")
 
-        await self.play_song(ctx, song)
+        await self.play_song(ctx, song) #involes player 
         user = ctx.message.author.name
         title = pafy.new(song).title
         thumbnail = pafy.new(song).bigthumbhd
@@ -166,7 +166,7 @@ class Player(commands.Cog):
         await ctx.send(embed=embed)
         
 
-    @commands.command(name="np")
+    @commands.command(name="np") #now_playing command (bugged doesn't work properly)
     async def now_playing(self, ctx):
         if ctx.voice_client is None:
             return await ctx.send("**I am not connected to a voice channel.**")
@@ -179,7 +179,7 @@ class Player(commands.Cog):
             
              
     
-    @commands.command()
+    @commands.command() #searches song on youtube
     async def search(self, ctx, *, song=None):
         if song is None: return await ctx.send("**You forgot to include a song to search for.**")
 
@@ -196,8 +196,8 @@ class Player(commands.Cog):
         embed.set_footer(text=f"Displaying top {amount} results.")
         await ctx.send(embed=embed)
 
-    @commands.command()
-    async def queue(self, ctx): # display the current guilds queue
+    @commands.command() #displays queue
+    async def queue(self, ctx):
         if len(self.song_queue[ctx.guild.id]) == 0:
             return await ctx.send("**There are currently no songs in the queue.**")
 
@@ -211,7 +211,7 @@ class Player(commands.Cog):
             
         await ctx.send(embed=embed)
 
-    @commands.command(name="pop")
+    @commands.command(name="pop") #pops [index] from queue
     async def queue_remove(self, ctx, *, index=None):
         if len(self.song_queue[ctx.guild.id]) == 0:
             await ctx.send("**There are currently no songs in the queue.**")
@@ -230,12 +230,12 @@ class Player(commands.Cog):
         
     
 
-    @commands.command()
+    @commands.command() 
     async def skip(self, ctx):
         owner_id = 212702039103373312
         role = discord.utils.find(lambda r: r.name == 'DJ', ctx.message.guild.roles)
 
-        if role in ctx.author.roles or ctx.author.id == owner_id and len(self.song_queue[ctx.guild.id]) > 0:
+        if role in ctx.author.roles or ctx.author.id == owner_id and len(self.song_queue[ctx.guild.id]) > 0: #skips song if DJ or owner of bot
             skip = True
             ctx.voice_client.stop()
            # title = pafy.new(self.song_queue[ctx.guild.id][0]).title
@@ -258,7 +258,8 @@ class Player(commands.Cog):
         if ctx.author.voice.channel.id != ctx.voice_client.channel.id:
             return await ctx.send("**I am not currently playing any songs for you.**")
 
-        poll = discord.Embed(description="**70% of the voice channel must vote to skip for it to pass.**", colour=discord.Colour.green())
+        #vote to skip functionality
+        poll = discord.Embed(description="**70% of the voice channel must vote to skip for it to pass.**", colour=discord.Colour.green()) 
         poll.set_author(name=f"{ctx.author.name} has voted to skip the song", icon_url=ctx.author.avatar_url)
         poll.add_field(name="Skip", value=":white_check_mark:")
         poll.add_field(name="Don't Skip", value=":no_entry_sign:")
@@ -327,7 +328,7 @@ class Player(commands.Cog):
 
 
     @commands.command()
-    async def clear(self, ctx): # display the current guilds queue
+    async def clear(self, ctx): #clears the queue
         if len(self.song_queue[ctx.guild.id]) == 0:
             return await ctx.send("**There are currently no songs in the queue to clear.**")
         else:
@@ -343,7 +344,7 @@ class Player(commands.Cog):
         venmo.set_image(url="https://cdn.discordapp.com/attachments/644707361273020447/962728466271334400/IMG_9155.png")
         await ctx.send(embed=venmo)
 
-    @commands.command()
+    @commands.command() #disconnects bot, clears queue
     async def stop(self, ctx):
         if ctx.voice_client is not None:
             self.song_queue[ctx.guild.id] = []
