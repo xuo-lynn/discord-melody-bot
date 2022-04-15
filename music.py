@@ -5,6 +5,7 @@ from unittest import result
 import youtube_dl
 import pafy
 import discord
+import aiohttp
 from discord.ext import commands
 
 if sys.version_info[0] == 3 and sys.version_info[1] >= 8 and sys.platform.startswith('win'):
@@ -14,6 +15,8 @@ intents = discord.Intents.default()
 intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
+bot.remove_command('help')
+
 
 @bot.event
 async def on_ready():
@@ -26,6 +29,7 @@ class Player(commands.Cog):
         self.song_queue = {}
         self.avatar_queue = {}
         self.name_queue = {}
+        self.current_track = {}
 
         self.setup()
 
@@ -34,8 +38,9 @@ class Player(commands.Cog):
             self.song_queue[guild.id] = []
             self.avatar_queue[guild.id] = []
             self.name_queue[guild.id] = []
+            self.current_track = {}
     
-    global user
+    global user #i forgot what this affects but im just gonna leave it here
 
     async def play_song(self, ctx, song):
         url = pafy.new(song).getbestaudio().url
@@ -43,8 +48,10 @@ class Player(commands.Cog):
         ctx.voice_client.source.volume = 0.5
 
     async def check_queue(self, ctx):
+
         if len(self.song_queue[ctx.guild.id]) > 0:
-            await self.play_song(ctx, self.song_queue[ctx.guild.id][0])
+            async with ctx.typing():
+                await self.play_song(ctx, self.song_queue[ctx.guild.id][0])
             title = pafy.new(self.song_queue[ctx.guild.id][0]).title
             embed = discord.Embed(title="Now Playing", description=title, color=0xf8c8dc)
             embed.set_author(name=f"{self.name_queue[ctx.guild.id][0]}", icon_url= self.avatar_queue[ctx.guild.id][0])
@@ -54,6 +61,27 @@ class Player(commands.Cog):
             self.avatar_queue[ctx.guild.id].pop(0)
             self.name_queue[ctx.guild.id].pop(0)
             await ctx.send(embed=embed)
+
+    @commands.Cog.listener()
+    async def on_voice_state_update(self, member, before, after):   
+    
+        if not member.id == self.bot.user.id:
+            return
+
+        elif before.channel is None:
+            voice = after.channel.guild.voice_client
+            time = 0
+            while True:
+                await asyncio.sleep(1)
+                time = time + 1
+                if voice.is_playing() and not voice.is_paused():
+                    time = 0
+                if time == 300:
+                    await voice.disconnect()
+                if not voice.is_connected():
+                    break
+        
+
             
 
     async def search_song(self, amount, song, get_url=False):
@@ -61,6 +89,21 @@ class Player(commands.Cog):
         if len(info["entries"]) == 0: return None
 
         return [entry["webpage_url"] for entry in info["entries"]] if get_url else info
+    
+    @commands.command()
+    async def help(self,ctx):
+        embed = discord.Embed(title="Melody Commands", description= "  **Thanks for using Melody!**", color=0xf8c8dc)
+        embed.add_field(name="!play", value="Plays song from Youtube", inline=False)
+        embed.add_field(name="!pop", value="Removes song from queue", inline=False)
+        embed.add_field(name="!search", value="Searches for song on Youtube", inline=False)
+        embed.add_field(name="!skip", value="Skips the current song", inline=False)
+        embed.add_field(name="!queue", value="Shows the current queue", inline=False)
+        embed.add_field(name="!clear", value="Clears the current queue", inline=False)
+        embed.add_field(name="!pause", value="Pauses the current song", inline=False)
+        embed.add_field(name="!resume", value="Resumes the current song", inline=False)
+        embed.add_field(name="!stop", value="Leaves the voice channel", inline=False)
+        embed.add_field(name="!venmo", value="I am a humble person", inline=False)
+        await ctx.send(embed=embed)
 
     @commands.command()
     async def join(self, ctx):
@@ -72,12 +115,6 @@ class Player(commands.Cog):
 
         await ctx.author.voice.channel.connect()
 
-    @commands.command()
-    async def stop(self, ctx):
-        if ctx.voice_client is not None:
-            return await ctx.voice_client.disconnect()
-
-        await ctx.send("**I am not connected to a voice channel.**")
 
     @commands.command(name="play")
     async def play(self, ctx, *, song=None):
@@ -89,15 +126,17 @@ class Player(commands.Cog):
 
         # handle song where song isn't url
         if not ("youtube.com/watch?" in song or "https://youtu.be/" in song):
-            await ctx.send("**Searching for Song...**")
+            async with ctx.typing():
+                
 
-            global result
+                global result
             result = await self.search_song(1, song, get_url=True)
 
             if result is None:
                 return await ctx.send("**Sorry, I could not find the given song, try using my search command.**")
 
-            song = result[0]
+            song = result[0] 
+            
 
         if ctx.voice_client.source is not None:
             queue_len = len(self.song_queue[ctx.guild.id])
@@ -125,16 +164,18 @@ class Player(commands.Cog):
         embed.set_author(name=f"{user}", icon_url=ctx.author.avatar_url)
         embed.set_footer(text=f"Duration: {pafy.new(song).duration}")
         await ctx.send(embed=embed)
+        
 
-    #@commands.command(name="np")
-    #async def now_playing(self, ctx):
-     #   if ctx.voice_client is None:
-     #       return await ctx.send("**I am not connected to a voice channel.**")
+    @commands.command(name="np")
+    async def now_playing(self, ctx):
+        if ctx.voice_client is None:
+            return await ctx.send("**I am not connected to a voice channel.**")
 
-     #   if ctx.voice_client.source is None:
-     #       return await ctx.send("**I am not playing anything.**")
+        if ctx.voice_client.source is None:
+            return await ctx.send("**I am not playing anything.**")
 
-        #if ctx.voice_client.source is not None:
+        current = pafy.new(result).title
+        await ctx.send(current)
             
              
     
@@ -142,18 +183,17 @@ class Player(commands.Cog):
     async def search(self, ctx, *, song=None):
         if song is None: return await ctx.send("**You forgot to include a song to search for.**")
 
-        await ctx.send("**Searching for song, this may take a few seconds.**")
+        async with ctx.typing():
+            info = await self.search_song(5, song)
 
-        info = await self.search_song(5, song)
-
-        embed = discord.Embed(title=f"Results for '{song}':", description="**You can use these URL's to play an exact song if the one you want isn't the first result.**\n", colour=discord.Colour.red())
+        embed = discord.Embed(title=f"Results for '{song}'", description="**You can use these URL's to play an exact song if the one you want isn't the first result.**\n\n", color=0xf8c8dc)
         
         amount = 0
         for entry in info["entries"]:
-            embed.description += f"[{entry['title']}]({entry['webpage_url']})\n"
+            embed.description += f"• [{entry['title']}]({entry['webpage_url']})\n"
             amount += 1
 
-        embed.set_footer(text=f"Displaying the first {amount} results.")
+        embed.set_footer(text=f"Displaying top {amount} results.")
         await ctx.send(embed=embed)
 
     @commands.command()
@@ -170,6 +210,25 @@ class Player(commands.Cog):
             i += 1
             
         await ctx.send(embed=embed)
+
+    @commands.command(name="pop")
+    async def queue_remove(self, ctx, *, index=None):
+        if len(self.song_queue[ctx.guild.id]) == 0:
+            await ctx.send("**There are currently no songs in the queue.**")
+
+        if index is None: return await ctx.send("**Please include the queue number you would like removed.**")
+
+        
+        pop = discord.Embed(title="", description=f"{pafy.new(self.song_queue[ctx.guild.id][0]).title}", colour=discord.Colour.red())
+        pop.set_author(name=f"{ctx.author.name} removed from queue", icon_url=ctx.author.avatar_url)
+        self.song_queue[ctx.guild.id].pop(int(index)-1)
+
+        return await ctx.send(embed=pop)
+
+
+        
+        
+    
 
     @commands.command()
     async def skip(self, ctx):
@@ -277,6 +336,23 @@ class Player(commands.Cog):
             self.avatar_queue[ctx.guild.id] = []
             await ctx.send("**Queue cleared!**")
             
+    @commands.command()
+    async def venmo(self,ctx):
+        venmo = discord.Embed(title="Donations for bot hosting fees pls   <a:heartreceive:960379950760861736><a:heartsend:960380078158651423>",color=0xf8c8dc)
+        venmo.description = "[@xuo__](https://account.venmo.com/u/xuo__ 'Venmo')" 
+        venmo.set_image(url="https://cdn.discordapp.com/attachments/644707361273020447/962728466271334400/IMG_9155.png")
+        await ctx.send(embed=venmo)
+
+    @commands.command()
+    async def stop(self, ctx):
+        if ctx.voice_client is not None:
+            self.song_queue[ctx.guild.id] = []
+            self.name_queue[ctx.guild.id] = []
+            self.avatar_queue[ctx.guild.id] = []
+            return await ctx.voice_client.disconnect()
+
+        await ctx.send("**I am not connected to a voice channel.**")
+        
 
 
 async def setup():
