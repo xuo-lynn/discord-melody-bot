@@ -6,19 +6,22 @@ Utilizies discord.py, asyncio, youtube_dl, and pafy.
 
 Melody Commands
 
-!play
+!play (passes a song and plays the song through youtube)
 
-!search
+!search (searches for specific song)
 
-!skip
+!skip (skips current song)
 
-!queue
+!queue  (checks current queue)
 
-!clear
+!clear (clears current queue)
 
-!pause
+!pause  (pauses player)
 
-!resume
+!resume (resume players)
 
-!stop
+!stop (leaves the voice channel)
 
+!pop  (removes index of song)
+
+!help 
