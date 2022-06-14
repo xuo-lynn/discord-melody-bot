@@ -204,8 +204,8 @@ class Player(commands.Cog):
         embed = discord.Embed(title="Song Queue", description="", colour=discord.Colour.greyple())
         i = 1
         for url in self.song_queue[ctx.guild.id]:
-            url = pafy.new(url).title
-            embed.description += f"{i}. {url}\n"
+            title = pafy.new(url).title
+            embed.description += f"{i}. [{title}]({url})\n"
 
             i += 1
             
