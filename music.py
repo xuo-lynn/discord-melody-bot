@@ -198,8 +198,9 @@ class Player(commands.Cog):
 
     @commands.command() #displays queue
     async def queue(self, ctx):
-        if len(self.song_queue[ctx.guild.id]) == 0:
-            return await ctx.send("**There are currently no songs in the queue.**")
+        async with ctx.typing():
+            if len(self.song_queue[ctx.guild.id]) == 0:
+                return await ctx.send("**There are currently no songs in the queue.**")
 
         embed = discord.Embed(title="Song Queue", description="", colour=discord.Colour.greyple())
         i = 1
