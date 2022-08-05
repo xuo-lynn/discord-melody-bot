@@ -8,19 +8,22 @@ import discord
 import aiohttp
 from discord.ext import commands
 
+
 if sys.version_info[0] == 3 and sys.version_info[1] >= 8 and sys.platform.startswith('win'):
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 intents = discord.Intents.default()
 intents.members = True
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(command_prefix="?", intents=intents)
 bot.remove_command('help')
 
 
 @bot.event
 async def on_ready():
     print(f"{bot.user.name} is ready.")
+    listening_activity = discord.Activity(type=discord.ActivityType.listening, name="!help")
+    await bot.change_presence(activity=listening_activity) 
 
 
 class Player(commands.Cog):
@@ -30,7 +33,7 @@ class Player(commands.Cog):
         self.avatar_queue = {}
         self.name_queue = {}
         self.current_track = {}
-
+    
         self.setup()
 
     def setup(self):
@@ -55,12 +58,21 @@ class Player(commands.Cog):
             title = pafy.new(self.song_queue[ctx.guild.id][0]).title
             embed = discord.Embed(title="Now Playing", description=f"[{title}]({self.song_queue[ctx.guild.id][0]})", color=0xf8c8dc)
             embed.set_author(name=f"{self.name_queue[ctx.guild.id][0]}", icon_url= self.avatar_queue[ctx.guild.id][0])
-            embed.set_thumbnail(url=pafy.new(self.song_queue[ctx.guild.id][0]).getbestthumb)
+            embed.set_thumbnail(url=pafy.new(self.song_queue[ctx.guild.id][0]).getbestthumb())
             embed.set_footer(text=f"Duration: {pafy.new(self.song_queue[ctx.guild.id][0]).duration}")
             self.song_queue[ctx.guild.id].pop(0)
             self.avatar_queue[ctx.guild.id].pop(0)
             self.name_queue[ctx.guild.id].pop(0)
             await ctx.send(embed=embed)
+
+
+    @commands.Cog.listener()
+    async def on_guild_join(self, guild):
+        await guild.create_role(name="DJ", color=0xf8c8dc)
+        embed = discord.Embed(title="Hi, I'm Melody!", description="**Thanks for inviting me!** \n Use !help to get started.", color=0xf8c8dc)
+        embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/644707361273020447/964421954918580294/85c5b108a94bfa15fe88342f38b42530.gif")
+        embed.set_footer(text="Created by xuo#0009 🖤")
+        return await guild.system_channel.send(embed=embed)
 
     @commands.Cog.listener() #auto disconnect after 5 minutes when no song is playing
     async def on_voice_state_update(self, member, before, after):   
@@ -92,11 +104,11 @@ class Player(commands.Cog):
     
     @commands.command() #help command
     async def help(self,ctx): 
-        embed = discord.Embed(title="Melody Commands", description= "  **Thanks for using Melody!**", color=0xf8c8dc)
+        embed = discord.Embed(title="**Melody Commands**", description= "", color=0xf8c8dc)
         embed.add_field(name="!play", value="Plays song from Youtube", inline=False)
         embed.add_field(name="!pop", value="Removes song from queue", inline=False)
         embed.add_field(name="!search", value="Searches for song on Youtube", inline=False)
-        embed.add_field(name="!skip", value="Skips the current song", inline=False)
+        embed.add_field(name="!skip", value="Skips the current song \n (Assign role 'DJ' to allow users to forceskip)", inline=False)
         embed.add_field(name="!queue", value="Shows the current queue", inline=False)
         embed.add_field(name="!clear", value="Clears the current queue", inline=False)
         embed.add_field(name="!pause", value="Pauses the current song", inline=False)
@@ -146,7 +158,7 @@ class Player(commands.Cog):
                     self.avatar_queue[ctx.guild.id].append(ctx.author.avatar_url)
                     self.name_queue[ctx.guild.id].append(ctx.author.name)
                     title = pafy.new(song).title
-                    thumbnail = pafy.new(song).getbestthumb
+                    thumbnail = pafy.new(song).getbestthumb()
                     embed = discord.Embed(title=f"Position in queue: {queue_len+1}",description= f"[{title}]({song})", color=0x0096FF)
                     embed.set_author(name=f"{ctx.author.name} added to queue", icon_url=ctx.author.avatar_url)
                     embed.set_thumbnail(url=thumbnail)
@@ -158,7 +170,7 @@ class Player(commands.Cog):
         await self.play_song(ctx, song) #involes player 
         user = ctx.message.author.name
         title = pafy.new(song).title
-        thumbnail = pafy.new(song).getbestthumb
+        thumbnail = pafy.new(song).getbestthumb()
         embed = discord.Embed(title="Now Playing", description=f"[{title}]({song})", color=0xf8c8dc)
         embed.set_thumbnail(url=thumbnail)
         embed.set_author(name=f"{user}", icon_url=ctx.author.avatar_url)
@@ -176,7 +188,7 @@ class Player(commands.Cog):
 
         current = pafy.new(result).title
         await ctx.send(current)
-            
+                    
              
     
     @commands.command() #searches song on youtube
@@ -220,12 +232,11 @@ class Player(commands.Cog):
         if index is None: return await ctx.send("**Please include the queue number you would like removed.**")
 
         
-        pop = discord.Embed(title="", description=f"{pafy.new(self.song_queue[ctx.guild.id][index-1]).title}", colour=discord.Colour.red())
+        pop = discord.Embed(title="", description=f"{index}. {pafy.new(self.song_queue[ctx.guild.id][0]).title}", colour=discord.Colour.red())
         pop.set_author(name=f"{ctx.author.name} removed from queue", icon_url=ctx.author.avatar_url)
         self.song_queue[ctx.guild.id].pop(int(index)-1)
         self.avatar_queue[ctx.guild.id].pop(int(index)-1)
         self.name_queue[ctx.guild.id].pop(int(index)-1)
-
         return await ctx.send(embed=pop)
 
 
@@ -234,11 +245,12 @@ class Player(commands.Cog):
     
 
     @commands.command() 
-    async def skip(self, ctx):
-        owner_id = 212702039103373312
+    async def skip(self, ctx): #skips song if user is 'DJ' or 'Admin' or 'xuo'
+        owner_id = 212702039103373312 # xuo#9999        
+        
         role = discord.utils.find(lambda r: r.name == 'DJ', ctx.message.guild.roles)
 
-        if role in ctx.author.roles or ctx.author.id == owner_id and len(self.song_queue[ctx.guild.id]) > 0: #skips song if DJ or owner of bot
+        if role in ctx.author.roles or ctx.author.id == owner_id or ctx.author.guild_permissions.administrator and len(self.song_queue[ctx.guild.id]) > 0: #skips song if DJ or owner of bot
             skip = True
             ctx.voice_client.stop()
            # title = pafy.new(self.song_queue[ctx.guild.id][0]).title
