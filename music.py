@@ -232,7 +232,7 @@ class Player(commands.Cog):
         if index is None: return await ctx.send("**Please include the queue number you would like removed.**")
 
         
-        pop = discord.Embed(title="", description=f"{index}. {pafy.new(self.song_queue[ctx.guild.id][0]).title}", colour=discord.Colour.red())
+        pop = discord.Embed(title="", description=f"{index}. {pafy.new(self.song_queue[ctx.guild.id][int(index)-1]).title}", colour=discord.Colour.red())
         pop.set_author(name=f"{ctx.author.name} removed from queue", icon_url=ctx.author.avatar_url)
         self.song_queue[ctx.guild.id].pop(int(index)-1)
         self.avatar_queue[ctx.guild.id].pop(int(index)-1)
