@@ -15,7 +15,7 @@ if sys.version_info[0] == 3 and sys.version_info[1] >= 8 and sys.platform.starts
 intents = discord.Intents.default()
 intents.members = True
 
-bot = commands.Bot(command_prefix="?", intents=intents)
+bot = commands.Bot(command_prefix="!", intents=intents)
 bot.remove_command('help')
 
 
