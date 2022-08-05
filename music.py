@@ -55,7 +55,7 @@ class Player(commands.Cog):
             title = pafy.new(self.song_queue[ctx.guild.id][0]).title
             embed = discord.Embed(title="Now Playing", description=f"[{title}]({self.song_queue[ctx.guild.id][0]})", color=0xf8c8dc)
             embed.set_author(name=f"{self.name_queue[ctx.guild.id][0]}", icon_url= self.avatar_queue[ctx.guild.id][0])
-            embed.set_thumbnail(url=pafy.new(self.song_queue[ctx.guild.id][0]).bigthumbhd)
+            embed.set_thumbnail(url=pafy.new(self.song_queue[ctx.guild.id][0]).getbestthumb)
             embed.set_footer(text=f"Duration: {pafy.new(self.song_queue[ctx.guild.id][0]).duration}")
             self.song_queue[ctx.guild.id].pop(0)
             self.avatar_queue[ctx.guild.id].pop(0)
@@ -146,7 +146,7 @@ class Player(commands.Cog):
                     self.avatar_queue[ctx.guild.id].append(ctx.author.avatar_url)
                     self.name_queue[ctx.guild.id].append(ctx.author.name)
                     title = pafy.new(song).title
-                    thumbnail = pafy.new(song).bigthumbhd
+                    thumbnail = pafy.new(song).getbestthumb
                     embed = discord.Embed(title=f"Position in queue: {queue_len+1}",description= f"[{title}]({song})", color=0x0096FF)
                     embed.set_author(name=f"{ctx.author.name} added to queue", icon_url=ctx.author.avatar_url)
                     embed.set_thumbnail(url=thumbnail)
@@ -158,7 +158,7 @@ class Player(commands.Cog):
         await self.play_song(ctx, song) #involes player 
         user = ctx.message.author.name
         title = pafy.new(song).title
-        thumbnail = pafy.new(song).bigthumbhd
+        thumbnail = pafy.new(song).getbestthumb
         embed = discord.Embed(title="Now Playing", description=f"[{title}]({song})", color=0xf8c8dc)
         embed.set_thumbnail(url=thumbnail)
         embed.set_author(name=f"{user}", icon_url=ctx.author.avatar_url)
@@ -220,7 +220,7 @@ class Player(commands.Cog):
         if index is None: return await ctx.send("**Please include the queue number you would like removed.**")
 
         
-        pop = discord.Embed(title="", description=f"{pafy.new(self.song_queue[ctx.guild.id][0]-1).title}", colour=discord.Colour.red())
+        pop = discord.Embed(title="", description=f"{pafy.new(self.song_queue[ctx.guild.id][index-1]).title}", colour=discord.Colour.red())
         pop.set_author(name=f"{ctx.author.name} removed from queue", icon_url=ctx.author.avatar_url)
         self.song_queue[ctx.guild.id].pop(int(index)-1)
         self.avatar_queue[ctx.guild.id].pop(int(index)-1)
