@@ -115,6 +115,7 @@ class Player(commands.Cog):
         embed.add_field(name="!resume", value="Resumes the current song", inline=False)
         embed.add_field(name="!stop", value="Leaves the voice channel", inline=False)
         embed.add_field(name="!venmo", value="I am a humble person", inline=False)
+        embed.add_field(name="!pfp", value="Displays full image profile picture of @ user ", inline=False)
         await ctx.send(embed=embed)
 
     @commands.command()
@@ -369,6 +370,13 @@ class Player(commands.Cog):
 
         await ctx.send("**I am not connected to a voice channel.**")
         
+    @commands.command()
+    async def pfp(self,ctx,member:discord.Member=None):
+        if member is None:
+            member = ctx.author
+        pfp = discord.Embed(title=f"{member.name}'s profile picture",color=0xf8c8dc)
+        pfp.set_image(url=member.avatar_url)
+        await ctx.send(embed=pfp)
 
 
 async def setup():
